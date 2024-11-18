@@ -1,0 +1,17 @@
+[project]
+name = "librepythonista-python-editor"
+version = "0.1.0"
+description = "A Python editor for LibreOffice that has the LibrePythonista extension installed."
+readme = "README.md"
+requires-python = ">=3.8"
+# https://packaging.python.org/en/latest/specifications/dependency-specifiers/
+dependencies = [
+    "jedi>=0.19.0",
+    "cefpython3>=66.1; sys_platform == 'win32'",
+    "pyobjc>=10.3.1; platform_system == 'darwin'",
+    "PyQt6>=6.7.0; platform_system == 'darwin'",
+    "qtpy>=2.4.0; platform_system == 'linux'",
+    "PyQt5>=5.15.4; platform_system == 'linux'",
+    "PySide2>=5.15.0; platform_system == 'linux'",
+    "pywebview>=5.3.2"    
+]
