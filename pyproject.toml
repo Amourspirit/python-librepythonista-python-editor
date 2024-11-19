@@ -1,6 +1,6 @@
 [project]
 name = "librepythonista-python-editor"
-version = "0.1.2"
+version = "0.1.3"
 description = "A Python editor for LibreOffice that has the LibrePythonista extension installed."
 readme = "README.md"
 authors = [
@@ -44,6 +44,9 @@ Homepage = "https://github.com/Amourspirit/python-librepythonista-python-editor"
 Repository = "https://github.com/Amourspirit/python-librepythonista-python-editor"
 Issues = "https://github.com/Amourspirit/python-librepythonista-python-editor/issues"
 
+[project.scripts]
+librepythonista-cell-edit = "librepythonista_py_edit.cell_edit:main"
+
 [dependency-groups]
 dev = [
     "python-dotenv>=1.0.1",
@@ -51,11 +54,11 @@ dev = [
 
 # https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 
-[[tool.uv.index]]
-name = "pypi"
-url = "https://pypi.org/legacy/"
-default = true
-token = {env = "UV_TOKEN"}
+# [[tool.uv.index]]
+# name = "pypi"
+# url = "https://pypi.org/legacy/"
+# default = true
+# token = {env = "UV_TOKEN"}
 
 [[tool.uv.index]]
 name = "pypi-test"
