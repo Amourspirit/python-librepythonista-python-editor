@@ -1,6 +1,15 @@
 {
+    "terminal.integrated.shellIntegration.enabled": true,
+    "python.defaultInterpreterPath": "${workspaceRoot}/.venv/bin/python3",
+    "autoDocstring.docstringFormat": "google",
     "spellchecker.ignoreWordsList": [
         "LibreOffice",
         "LibrePythonista"
-    ]
+    ],
+    "[python]": {
+        "editor.formatOnPaste": false,
+        "editor.formatOnSaveMode": "file",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff"
+    },
 }
