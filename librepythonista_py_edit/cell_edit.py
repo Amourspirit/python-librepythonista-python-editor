@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-from typing import Any, List, Dict, cast
+from typing import Any, List, Dict, cast, TYPE_CHECKING
 import socket
 import struct
 import sys
@@ -8,6 +8,7 @@ import json
 import threading
 from pathlib import Path
 import argparse
+
 import webview
 import webview.menu as wm
 import jedi  # noqa # type: ignore
@@ -180,6 +181,7 @@ class Api:
         self.resources: Dict[str, str] = {}
         self.info: Dict[str, str] = {}
         self.theme: Dict[str, Any] = {}
+        self.log_config: Dict[str, str] = {}
         self.module_source_code = ""
         self.window_config = WindowConfig()
         self.destroyed = False
@@ -350,6 +352,7 @@ class Api:
                     self.info = data.get("info", {})
                     self.resources = data.get("resources", {})
                     self.theme = data.get("theme", {})
+                    self.log_config = data.get("log_config", {})
                     self.module_source_code = cast(
                         str, data.get("module_source_code", "")
                     )
@@ -397,14 +400,14 @@ class Api:
 
     # region Window Events
     def on_resized(self, width: int, height: int) -> None:
-        if _IS_DEBUG:
-            sys.stdout.write(f"Resized: {width} x {height}\n")
+        # if _IS_DEBUG:
+        #     sys.stdout.write(f"Resized: {width} x {height}\n")
         self.window_config.width = width
         self.window_config.height = height
 
     def on_moved(self, x: int, y: int) -> None:
-        if _IS_DEBUG:
-            sys.stdout.write(f"Moved: {x}, {y}\n")
+        # if _IS_DEBUG:
+        #     sys.stdout.write(f"Moved: {x}, {y}\n")
         # On Ubuntu 24.04, the window position reports 0, 0 when moved
         # On Ubuntu 20.04, With LibreOffice and Embedded python it works.
         # On windows 10 the position is reported correctly
@@ -538,7 +541,7 @@ class Menu:
 # endregion Menu
 
 
-def get_std_logs(runtime_args: RuntimeArgs) -> Dict[str, str]:
+def get_std_logs(runtime_args: RuntimeArgs) -> Dict[str, List[str]]:
     if runtime_args.process_id and runtime_args.port > 0:
         stdout_collector = OutputCollector(key="stdout")
         stderr_collector = OutputCollector(key="stderr")
@@ -554,7 +557,29 @@ def get_std_logs(runtime_args: RuntimeArgs) -> Dict[str, str]:
 
 def main():
     global _WEB_VEW_ENDED, _IS_DEBUG, _IS_DARK_THEME
+
+    if TYPE_CHECKING:
+        from .log.logger_config import LoggerConfig
+        from .log.default_logger import DefaultLogger
+    else:
+        try:
+            from librepythonista_py_edit.log.logger_config import (
+                LoggerConfig,
+            )  # # noqa: F401 # type: ignore
+            from librepythonista_py_edit.log.default_logger import (
+                DefaultLogger,
+            )  # # noqa: F401 # type: ignore
+        except Exception as e:
+            sys.stderr.write(f"Error importing logger classes: {e}\n")
+            sys.exit(1)
+
+    log_config = LoggerConfig()
+    log_config.log_name = "CellEdit"
+    log = DefaultLogger(log_config=log_config)
+
     _WEB_VEW_ENDED = False
+    original_stdout = None
+    original_stderr = None
 
     parser = _create_parser("main")
     _parser_args_add(parser)
@@ -639,6 +664,20 @@ def main():
         # Wait for the menu data to be received
         response_event.wait(timeout=10)  # Wait for up to 10 seconds
 
+        if api.log_config:
+            sys.stdout.write(f"Received logs config data: {api.log_config}\n")
+            try:
+                log_config = LoggerConfig.from_dict(api.log_config)
+                log_config.log_name = "CellEdit"
+                log = DefaultLogger(log_config=log_config)
+                log.debug("Logger created")
+            except Exception as e:
+                sys.stderr.write(f"Error creating logger: {e}\n")
+        else:
+            sys.stdout.write(
+                "Failed to receive logs config data within the timeout period\n"
+            )
+
         if api.resources:
             sys.stdout.write(f"Received menu data: {api.resources}\n")
         else:
@@ -659,7 +698,8 @@ def main():
 
         _IS_DARK_THEME = bool(api.theme.get("is_doc_dark", False))
 
-        sys.stdout.write("Creating window\n")
+        # sys.stdout.write("Creating window\n")
+        log.debug("Creating window")
         title = api.resources.get("title10", "Python Code")
         cell = api.info.get("cell", "")
         if cell:
@@ -694,15 +734,16 @@ def main():
         api.set_window(window)
         # theme_js = f"applyTheme({_IS_DARK_THEME});"
         # window.evaluate_js(theme_js)
-        sys.stdout.write("Window created\n")
+        log.debug("Window created")
+        # sys.stdout.write("Window created\n")
         # if sys.platform == "win32":
         #     gui_type = "cef"
         # elif sys.platform == "linux":
         #     gui_type = "qt"
         # else:
         #     gui_type = None
-
-        sys.stdout.write("Starting Webview\n")
+        log.debug("Starting Webview")
+        # sys.stdout.write("Starting Webview\n")
         mnu = Menu(api)
         webview.start(
             webview_ready,
@@ -711,7 +752,8 @@ def main():
             menu=mnu.get_menu(),
             debug=False,
         )  # setting gui is causing crash in LibreOffice
-        sys.stdout.write("Ended Webview\n")
+        log.debug("Ended Webview")
+        # sys.stdout.write("Ended Webview\n")
 
         # Collect logs from stdout and stderr
 
@@ -740,12 +782,15 @@ def main():
         client_socket.close()
 
     except Exception as e:
-        sys.stderr.write(f"Error in main {e}\n")
+        # sys.stderr.write(f"Error in main {e}\n")
+        log.exception(f"Error in main: {e}")
     finally:
         # Restore original stdout and stderr
         if runtime_args.process_id and runtime_args.port > 0:
-            sys.stdout = original_stdout
-            sys.stderr = original_stderr
+            if original_stdout is not None:
+                sys.stdout = original_stdout
+            if original_stderr is not None:
+                sys.stderr = original_stderr
 
 
 # endregion Main
