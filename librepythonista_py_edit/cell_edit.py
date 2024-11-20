@@ -1,4 +1,18 @@
 #!/usr/bin/env python3
+#
+# On Windows --host and --port are required
+# On linux and MacOs --socket-path is used
+#
+# to debug this file in the termanil run the following command:
+# /usr/bin/python3 '/home/paul/.local/lib/python3.12/site-packages/librepythonista_py_edit/cell_edit.py' --process-id '14b6256c-6c80-4885-814e-3c9a5f440f15' --host 'localhost' --port '0' --socket-path '/tmp/librepythonista_edit.sock' --debug 'debug' --not-subprocess
+# --process-id can be replace with a valid id if you have one
+# --not-subprocess is used to write to stdout and stderr to the console instead of sending to the server
+#
+# Manually installing the package
+# /usr/bin/python3 -m pip install ~/Documents/Projects/Python/LibreOffice/LibreOffice_Python_editor/dist/librepythonista_python_editor-0.1.6-py3-none-any.whl --target ~/.local/lib/python3.12/site-packages
+# Of course replace the path with the path to the wheel file.
+# change the python version if needed.
+#
 from __future__ import annotations
 from typing import Any, List, Dict, cast, TYPE_CHECKING
 import socket
@@ -58,6 +72,30 @@ def _parser_args_add(parser: argparse.ArgumentParser) -> None:
         dest="port_number",
         default=0,
     )
+    parser.add_argument(
+        "-s",
+        "--socket-path",
+        help="Socket path for unix domain socket. Only used if port is 0 or less.",
+        action="store",
+        dest="socket_path",
+        default="",
+    )
+    parser.add_argument(
+        "-t",
+        "--host",
+        help="Host name or IP address to connect to the server. Default is localhost and only used if port is greater than 0.",
+        action="store",
+        dest="host",
+        default="localhost",
+    )
+    parser.add_argument(
+        "-b",
+        "--not-subprocess",
+        help="For debugging. When included will write to stdout and stderr to the console instead of sending to the server.",
+        action="store_false",
+        dest="subprocess_mode",
+        default=True,
+    )
 
 
 # endregion Args Parse
@@ -69,10 +107,16 @@ class RuntimeArgs:
         self.process_id = ""
         self.port = 0
         self.debug_mode = False
+        self.socket_path = ""
+        self.host = "localhost"
+        self.subprocess_mode = True
 
     def from_args(self, args: argparse.Namespace):
         self.process_id = str(args.process_id)
         self.port = int(args.port_number)
+        self.socket_path = str(args.socket_path)
+        self.host = str(args.host)
+        self.subprocess_mode = bool(args.subprocess_mode)
         debug_mode = str(args.debug_mode)
         self.debug_mode = debug_mode.lower() == "debug"
 
@@ -417,6 +461,7 @@ class Api:
     # endregion Window Events
 
 
+# region General Methods
 def webview_ready(window: webview.Window):
     global _IS_DARK_THEME
     theme_js = f"applyTheme({str(_IS_DARK_THEME).lower()});"
@@ -499,6 +544,20 @@ def send_message(sock: socket.socket, message: Dict[str, Any]) -> None:
         sys.stderr.write(f"Error sending message: {e}\n")
 
 
+def get_std_logs(runtime_args: RuntimeArgs) -> Dict[str, List[str]]:
+    if runtime_args.process_id and runtime_args.port > 0:
+        stdout_collector = OutputCollector(key="stdout")
+        stderr_collector = OutputCollector(key="stderr")
+        return {
+            "stdout": stdout_collector.get_logs(),
+            "stderr": stderr_collector.get_logs(),
+        }
+    return {}
+
+
+# endregion General Methods
+
+
 # region Menu
 class Menu:
     def __init__(self, api: Api):
@@ -540,18 +599,6 @@ class Menu:
 
 # endregion Menu
 
-
-def get_std_logs(runtime_args: RuntimeArgs) -> Dict[str, List[str]]:
-    if runtime_args.process_id and runtime_args.port > 0:
-        stdout_collector = OutputCollector(key="stdout")
-        stderr_collector = OutputCollector(key="stderr")
-        return {
-            "stdout": stdout_collector.get_logs(),
-            "stderr": stderr_collector.get_logs(),
-        }
-    return {}
-
-
 # region Main
 
 
@@ -591,7 +638,11 @@ def main():
     _IS_DEBUG = runtime_args.debug_mode
 
     # Create OutputCollector instances
-    if runtime_args.process_id and runtime_args.port > 0:
+    if (
+        runtime_args.subprocess_mode
+        and runtime_args.process_id
+        and (runtime_args.port > 0 or runtime_args.socket_path)
+    ):
         stdout_collector = OutputCollector(key="stdout")
         stderr_collector = OutputCollector(key="stderr")
         # Save original stdout and stderr
@@ -617,14 +668,38 @@ def main():
             sys.stderr.write(f"Error sending 'webview_ready': {e}\n")
 
     try:
-        if not runtime_args.process_id or runtime_args.port <= 0:
+        if not runtime_args.process_id:
+            sys.stdout.write("--process-id <process_id> is required\n")
+            sys.exit(1)
+
+        if runtime_args.port > 0 and not runtime_args.host:
             sys.stdout.write(
-                "Usage: python shell_edit.py --process-id <process_id> --port <port>\n"
+                "Usage: python shell_edit.py --process-id <process_id> --host <host or ip> --port <port>\n"
             )
             sys.exit(1)
 
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect(("localhost", runtime_args.port))
+        if runtime_args.port <= 0 and not runtime_args.socket_path:
+            sys.stdout.write(
+                "Usage: python shell_edit.py --process-id <process_id> --socket_path <socket_path>\n"
+            )
+            sys.exit(1)
+
+        if runtime_args.port > 0:
+            if not runtime_args.host:
+                runtime_args.host = "localhost"
+            print(
+                f"Connecting to server using host: {runtime_args.host} and port: {runtime_args.port}"
+            )
+            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client_socket.connect((runtime_args.host, runtime_args.port))
+        else:
+            if not runtime_args.socket_path:
+                print("Socket path is required when port is 0")
+                sys.stderr.write("Socket path is required when port is 0\n")
+                sys.exit(1)
+            print(f"Connecting to server using socket path: {runtime_args.socket_path}")
+            client_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            client_socket.connect(runtime_args.socket_path)
 
         # Send a message to the main process
         data = {
@@ -786,7 +861,11 @@ def main():
         log.exception(f"Error in main: {e}")
     finally:
         # Restore original stdout and stderr
-        if runtime_args.process_id and runtime_args.port > 0:
+        if (
+            runtime_args.subprocess_mode
+            and runtime_args.process_id
+            and (runtime_args.port > 0 or runtime_args.socket_path)
+        ):
             if original_stdout is not None:
                 sys.stdout = original_stdout
             if original_stderr is not None:
