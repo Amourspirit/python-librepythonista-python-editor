@@ -96,6 +96,15 @@ def _parser_args_add(parser: argparse.ArgumentParser) -> None:
         dest="subprocess_mode",
         default=True,
     )
+    parser.add_argument(
+        "-k",
+        "--kind",
+        help="Kind of installation (default, flatpak, snap)",
+        action="store",
+        dest="kind",
+        default="default",
+        choices=["default", "flatpak", "snap"],
+    )
 
 
 # endregion Args Parse
@@ -109,6 +118,7 @@ class RuntimeArgs:
         self.debug_mode = False
         self.socket_path = ""
         self.host = "localhost"
+        self.kind = "default"
         self.subprocess_mode = True
 
     def from_args(self, args: argparse.Namespace):
@@ -116,9 +126,13 @@ class RuntimeArgs:
         self.port = int(args.port_number)
         self.socket_path = str(args.socket_path)
         self.host = str(args.host)
+        if args.kind:
+            self.kind = str(args.kind)
         self.subprocess_mode = bool(args.subprocess_mode)
         debug_mode = str(args.debug_mode)
         self.debug_mode = debug_mode.lower() == "debug"
+        if self.socket_path.startswith("~"):
+            self.socket_path = str(Path(self.socket_path).expanduser())
 
 
 # endregion Runtime Args
