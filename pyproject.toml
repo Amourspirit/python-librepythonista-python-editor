@@ -1,6 +1,7 @@
 [project]
 name = "librepythonista-python-editor"
-version = "0.1.7"
+# set version in librepythonista_py_edit/__init__.py
+dynamic = ["version"]
 description = "A Python editor for LibreOffice that has the LibrePythonista extension installed."
 readme = "README.md"
 authors = [
@@ -39,7 +40,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
-
 [project.urls]
 Homepage = "https://github.com/Amourspirit/python-librepythonista-python-editor"
 Repository = "https://github.com/Amourspirit/python-librepythonista-python-editor"
@@ -71,6 +71,7 @@ username= "__token__"
 password = {env = "UV_TEST_TOKEN"}
 
 [build-system]
+# requires = ["hatchling", "setuptools_scm"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
@@ -78,3 +79,6 @@ build-backend = "hatchling.build"
 include = [
     "librepythonista_py_edit/**/*",
 ]
+
+[tool.hatch.version]
+path = "librepythonista_py_edit/__init__.py"
