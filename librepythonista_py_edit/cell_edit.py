@@ -27,6 +27,8 @@ import webview
 import webview.menu as wm
 import jedi  # noqa # type: ignore
 
+import librepythonista_py_edit
+
 
 # https://pywebview.flowrl.com/guide/api.html#webview-settings
 
@@ -745,6 +747,7 @@ def main():
             "cmd": "request_action",
             "process_id": process_id,
             "action": "get_info",
+            "version": librepythonista_py_edit.__version__,
             "params": {},
         }
         send_message(client_socket, request_data)
