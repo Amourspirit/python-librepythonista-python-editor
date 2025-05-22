@@ -32,12 +32,14 @@ import librepythonista_py_edit
 
 # https://pywebview.flowrl.com/guide/api.html#webview-settings
 
-webview.settings = {
-    "ALLOW_DOWNLOADS": False,
-    "ALLOW_FILE_URLS": True,
-    "OPEN_EXTERNAL_LINKS_IN_BROWSER": False,
-    "OPEN_DEVTOOLS_IN_DEBUG": False,
-}
+webview.settings.update(
+    {
+        "ALLOW_DOWNLOADS": False,
+        "ALLOW_FILE_URLS": True,
+        "OPEN_EXTERNAL_LINKS_IN_BROWSER": False,
+        "OPEN_DEVTOOLS_IN_DEBUG": False,
+    }
+)
 
 _WEB_VEW_ENDED = False
 _IS_DEBUG = False
